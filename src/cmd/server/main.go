@@ -88,8 +88,11 @@ func main() {
 	getMyStatusesUsecase := status.NewGetMyStatusesUsecase(statusRepo)
 	deleteStatusUsecase := status.NewDeleteStatusUsecase(statusRepo)
 
+	uploadProfilePhotoUsecase := auth.NewUploadProfilePhotoUsecase(userRepo)
+	deleteProfilePhotoUsecase := auth.NewDeleteProfilePhotoUsecase(userRepo)
+
 	// Initialize Handlers
-	authHandler := handlers.NewAuthHandler(registerUsecase, loginUsecase, getMeUsecase, googleLoginUsecase, jwtService)
+	authHandler := handlers.NewAuthHandler(registerUsecase, loginUsecase, getMeUsecase, googleLoginUsecase, uploadProfilePhotoUsecase, deleteProfilePhotoUsecase, jwtService, fileUploadService)
 	agendaHandler := handlers.NewAgendaHandler(createAgendaUsecase, getAgendasUsecase)
 	chatHandler := handlers.NewChatHandler(sendMessageUsecase, getMessagesUsecase)
 	userHandler := handlers.NewUserHandler(getAllUsersUsecase, getUserByIDUsecase)

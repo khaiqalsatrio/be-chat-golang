@@ -36,6 +36,10 @@ func SetupRoutes(
 
 			// Protected routes
 			auth.GET("/me", middleware.AuthMiddleware(jwtService), authHandler.GetMe)
+			auth.POST("/logout", middleware.AuthMiddleware(jwtService), authHandler.Logout)
+			auth.POST("/profile/photo", middleware.AuthMiddleware(jwtService), authHandler.UploadProfilePhoto)
+			auth.PUT("/profile/photo", middleware.AuthMiddleware(jwtService), authHandler.UploadProfilePhoto)
+			auth.DELETE("/profile/photo", middleware.AuthMiddleware(jwtService), authHandler.DeleteProfilePhoto)
 		}
 
 		// User routes

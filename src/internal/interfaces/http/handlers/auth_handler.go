@@ -5,16 +5,22 @@ import (
 	"chat-golang/src/internal/usecases/auth"
 	"chat-golang/src/pkg/response"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthHandler struct {
-	registerUsecase    *auth.RegisterUsecase
-	loginUsecase       *auth.LoginUsecase
-	getMeUsecase       *auth.GetMeUsecase
-	googleLoginUsecase *auth.GoogleLoginUsecase
-	jwtService         *services.JWTService
+	registerUsecase         *auth.RegisterUsecase
+	loginUsecase            *auth.LoginUsecase
+	getMeUsecase            *auth.GetMeUsecase
+	googleLoginUsecase      *auth.GoogleLoginUsecase
+	uploadProfilePhotoUsecase *auth.UploadProfilePhotoUsecase
+	deleteProfilePhotoUsecase *auth.DeleteProfilePhotoUsecase
+	jwtService              *services.JWTService
+	fileUploadService       *services.FileUploadService
 }
 
 func NewAuthHandler(
@@ -22,14 +28,20 @@ func NewAuthHandler(
 	loginUsecase *auth.LoginUsecase,
 	getMeUsecase *auth.GetMeUsecase,
 	googleLoginUsecase *auth.GoogleLoginUsecase,
+	uploadProfilePhotoUsecase *auth.UploadProfilePhotoUsecase,
+	deleteProfilePhotoUsecase *auth.DeleteProfilePhotoUsecase,
 	jwtService *services.JWTService,
+	fileUploadService *services.FileUploadService,
 ) *AuthHandler {
 	return &AuthHandler{
-		registerUsecase:    registerUsecase,
-		loginUsecase:       loginUsecase,
-		getMeUsecase:       getMeUsecase,
-		googleLoginUsecase: googleLoginUsecase,
-		jwtService:         jwtService,
+		registerUsecase:         registerUsecase,
+		loginUsecase:            loginUsecase,
+		getMeUsecase:            getMeUsecase,
+		googleLoginUsecase:      googleLoginUsecase,
+		uploadProfilePhotoUsecase: uploadProfilePhotoUsecase,
+		deleteProfilePhotoUsecase: deleteProfilePhotoUsecase,
+		jwtService:              jwtService,
+		fileUploadService:       fileUploadService,
 	}
 }
 
@@ -127,6 +139,116 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	}
 
 	response.JSON(c, http.StatusOK, "User profile fetched", user)
+}
+
+// Logout godoc
+// @Summary Logout current user
+// @Description Blacklist current JWT token and logout the current user
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /auth/logout [post]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		response.Error(c, http.StatusUnauthorized, "Authorization header is required")
+		return
+	}
+
+	tokenString := authHeader
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	token, err := h.jwtService.ValidateToken(tokenString)
+	if err != nil || !token.Valid {
+		response.Error(c, http.StatusUnauthorized, "Invalid or expired token")
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Invalid token claims")
+		return
+	}
+
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		response.Error(c, http.StatusBadRequest, "Invalid token expiration")
+		return
+	}
+
+	expiresAt := time.Unix(int64(exp), 0)
+	h.jwtService.BlacklistToken(tokenString, expiresAt)
+
+	response.JSON(c, http.StatusOK, "Logged out successfully", nil)
+}
+
+// UploadProfilePhoto godoc
+// @Summary Upload or update profile photo
+// @Description Upload a new profile photo and update user avatar URL
+// @Tags auth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Avatar image file"
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=entities.User}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /auth/profile/photo [post]
+func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	header, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "file field is required")
+		return
+	}
+
+	file, err := header.Open()
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "failed to open file")
+		return
+	}
+	defer file.Close()
+
+	uploadResult, err := h.fileUploadService.UploadFile(file, header.Filename)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	avatarURL := uploadResult.FileURL
+	user, err := h.uploadProfilePhotoUsecase.Execute(userID, avatarURL)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSON(c, http.StatusOK, "Profile photo updated", user)
+}
+
+// DeleteProfilePhoto godoc
+// @Summary Delete profile photo
+// @Description Remove the current user profile photo
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /auth/profile/photo [delete]
+func (h *AuthHandler) DeleteProfilePhoto(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	err := h.deleteProfilePhotoUsecase.Execute(userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSON(c, http.StatusOK, "Profile photo deleted", nil)
 }
 
 type GoogleLoginRequest struct {

@@ -252,6 +252,25 @@ paths:
       summary: Login user
       tags:
       - auth
+  /auth/logout:
+    post:
+      description: Blacklist current JWT token and logout the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Logout current user
+      tags:
+      - auth
   /auth/me:
     get:
       consumes:
@@ -276,6 +295,60 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user profile
+      tags:
+      - auth
+  /auth/profile/photo:
+    delete:
+      description: Remove the current user profile photo
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete profile photo
+      tags:
+      - auth
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a new profile photo and update user avatar URL
+      parameters:
+      - description: Avatar image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/entities.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload or update profile photo
       tags:
       - auth
   /auth/register:

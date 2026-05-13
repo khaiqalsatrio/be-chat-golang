@@ -13,6 +13,7 @@ import (
 	"chat-golang/src/internal/usecases/auth"
 	"chat-golang/src/internal/usecases/chat"
 	"chat-golang/src/internal/usecases/room"
+	"chat-golang/src/internal/usecases/status"
 	"chat-golang/src/internal/usecases/user"
 	"log"
 
@@ -46,16 +47,19 @@ func main() {
 
 	// Start Background Workers
 	worker.StartReminderWorker()
+	worker.StartStatusExpiryWorker()
 
 	// Initialize Services
 	jwtService := services.NewJWTService(cfg.JWTSecret)
 	googleAuthService := services.NewGoogleAuthService(cfg.GoogleID)
+	fileUploadService := services.NewFileUploadService("public/uploads")
 
 	// Initialize Repositories
 	userRepo := repositories.NewPostgresUserRepository(database.DB)
 	agendaRepo := repositories.NewPostgresAgendaRepository(database.DB)
 	chatRepo := repositories.NewPostgresChatRepository(database.DB)
 	roomRepo := repositories.NewPostgresRoomRepository(database.DB)
+	statusRepo := repositories.NewPostgresStatusRepository(database.DB)
 
 	// Initialize WebSocket Hub
 	hub := websocket.NewHub()
@@ -70,7 +74,7 @@ func main() {
 	createAgendaUsecase := agenda.NewCreateAgendaUsecase(agendaRepo)
 	getAgendasUsecase := agenda.NewGetAgendasUsecase(agendaRepo)
 
-	sendMessageUsecase := chat.NewSendMessageUsecase(chatRepo, hub)
+	sendMessageUsecase := chat.NewSendMessageUsecase(chatRepo, roomRepo, hub)
 	getMessagesUsecase := chat.NewGetMessagesUsecase(chatRepo)
 
 	getAllUsersUsecase := user.NewGetAllUsersUsecase(userRepo)
@@ -79,19 +83,25 @@ func main() {
 	createRoomUsecase := room.NewCreateRoomUsecase(roomRepo)
 	getRoomsUsecase := room.NewGetRoomsUsecase(roomRepo)
 
+	createStatusUsecase := status.NewCreateStatusUsecase(statusRepo)
+	getStatusesUsecase := status.NewGetStatusesUsecase(statusRepo)
+	getMyStatusesUsecase := status.NewGetMyStatusesUsecase(statusRepo)
+	deleteStatusUsecase := status.NewDeleteStatusUsecase(statusRepo)
+
 	// Initialize Handlers
 	authHandler := handlers.NewAuthHandler(registerUsecase, loginUsecase, getMeUsecase, googleLoginUsecase, jwtService)
 	agendaHandler := handlers.NewAgendaHandler(createAgendaUsecase, getAgendasUsecase)
 	chatHandler := handlers.NewChatHandler(sendMessageUsecase, getMessagesUsecase)
 	userHandler := handlers.NewUserHandler(getAllUsersUsecase, getUserByIDUsecase)
 	roomHandler := handlers.NewRoomHandler(createRoomUsecase, getRoomsUsecase)
+	statusHandler := handlers.NewStatusHandler(createStatusUsecase, getStatusesUsecase, getMyStatusesUsecase, deleteStatusUsecase, fileUploadService)
 	wsHandler := websocket.NewWSHandler(hub, jwtService)
 
 	// Setup Router
 	r := gin.Default()
 
 	// Setup Routes
-	routes.SetupRoutes(r, authHandler, agendaHandler, chatHandler, userHandler, roomHandler, wsHandler, jwtService)
+	routes.SetupRoutes(r, authHandler, agendaHandler, chatHandler, userHandler, roomHandler, statusHandler, wsHandler, jwtService)
 
 	// Start Server
 	log.Printf("Server starting on port %s", cfg.AppPort)

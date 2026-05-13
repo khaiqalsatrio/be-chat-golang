@@ -19,9 +19,13 @@ func SetupRoutes(
 	chatHandler *handlers.ChatHandler,
 	userHandler *handlers.UserHandler,
 	roomHandler *handlers.RoomHandler,
+	statusHandler *handlers.StatusHandler,
 	wsHandler *websocket.WSHandler,
 	jwtService *services.JWTService,
 ) {
+	// Serve static files (uploaded media)
+	r.Static("/uploads", "./public/uploads")
+
 	api := r.Group("/api")
 	{
 		auth := api.Group("/auth")
@@ -63,6 +67,16 @@ func SetupRoutes(
 			chatGroup.GET("/conversations/:roomId/messages", chatHandler.GetMessages)
 			chatGroup.POST("/messages", chatHandler.SendMessage)
 			chatGroup.POST("/conversations", roomHandler.Create)
+		}
+
+		// Status routes
+		statusGroup := api.Group("/status")
+		statusGroup.Use(middleware.AuthMiddleware(jwtService))
+		{
+			statusGroup.POST("", statusHandler.CreateStatus)
+			statusGroup.GET("", statusHandler.GetStatuses)
+			statusGroup.GET("/me", statusHandler.GetMyStatuses)
+			statusGroup.DELETE("/:id", statusHandler.DeleteStatus)
 		}
 
 		// WebSocket

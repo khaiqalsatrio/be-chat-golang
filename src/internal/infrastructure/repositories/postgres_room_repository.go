@@ -28,12 +28,25 @@ func (r *postgresRoomRepository) GetByID(id uuid.UUID) (*entities.Room, error) {
 
 func (r *postgresRoomRepository) GetByUserID(userID uuid.UUID) ([]entities.Room, error) {
 	var rooms []entities.Room
-	// Simple join to get rooms where user is participant
-	err := r.db.Joins("JOIN room_participants ON room_participants.room_id = rooms.id").
+	lastMessageSubquery := r.db.Select("content").Model(&entities.Message{}).
+		Where("messages.room_id = rooms.id").
+		Order("created_at desc").
+		Limit(1)
+
+	err := r.db.Model(&entities.Room{}).
+		Select("rooms.*, (?) as last_message", lastMessageSubquery).
+		Joins("JOIN room_participants ON room_participants.room_id = rooms.id").
 		Where("room_participants.user_id = ?", userID).
 		Preload("Participants").
+		Order("rooms.updated_at desc").
 		Find(&rooms).Error
 	return rooms, err
+}
+
+func (r *postgresRoomRepository) UpdateUpdatedAt(roomID uuid.UUID) error {
+	return r.db.Model(&entities.Room{}).
+		Where("id = ?", roomID).
+		UpdateColumn("updated_at", gorm.Expr("NOW()")).Error
 }
 
 func (r *postgresRoomRepository) AddParticipant(roomID uuid.UUID, userID uuid.UUID) error {

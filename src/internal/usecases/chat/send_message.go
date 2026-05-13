@@ -10,12 +10,14 @@ import (
 
 type SendMessageUsecase struct {
 	chatRepo repositories.ChatRepository
+	roomRepo repositories.RoomRepository
 	hub      *websocket.Hub
 }
 
-func NewSendMessageUsecase(chatRepo repositories.ChatRepository, hub *websocket.Hub) *SendMessageUsecase {
+func NewSendMessageUsecase(chatRepo repositories.ChatRepository, roomRepo repositories.RoomRepository, hub *websocket.Hub) *SendMessageUsecase {
 	return &SendMessageUsecase{
 		chatRepo: chatRepo,
+		roomRepo: roomRepo,
 		hub:      hub,
 	}
 }
@@ -53,6 +55,11 @@ func (u *SendMessageUsecase) Execute(req SendMessageRequest) (*entities.Message,
 
 	err = u.chatRepo.SaveMessage(message)
 	if err != nil {
+		return nil, err
+	}
+
+	// Update room timestamp after successful message save
+	if err = u.roomRepo.UpdateUpdatedAt(roomID); err != nil {
 		return nil, err
 	}
 

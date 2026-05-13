@@ -29,6 +29,8 @@ definitions:
     properties:
       content:
         type: string
+      conversation_id:
+        type: string
       room_id:
         type: string
       sender_id:
@@ -37,8 +39,6 @@ definitions:
         type: string
     required:
     - content
-    - room_id
-    - sender_id
     type: object
   entities.Agenda:
     properties:
@@ -86,6 +86,8 @@ definitions:
       created_at:
         type: string
       id:
+        type: string
+      last_message:
         type: string
       name:
         type: string
@@ -294,7 +296,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResult'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -503,6 +510,107 @@ paths:
       summary: Send a message
       tags:
       - chat
+  /status:
+    get:
+      description: Retrieve active statuses from connected users, grouped by user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get active statuses from contacts
+      tags:
+      - status
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a new status with image or video media file
+      parameters:
+      - description: Media file (image or video)
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Status caption
+        in: formData
+        name: caption
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new status (image/video)
+      tags:
+      - status
+  /status/{id}:
+    delete:
+      description: Delete a status before it expires (only owner can delete)
+      parameters:
+      - description: Status ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a status
+      tags:
+      - status
+  /status/me:
+    get:
+      description: Retrieve all active statuses of the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get my status history
+      tags:
+      - status
   /users:
     get:
       consumes:

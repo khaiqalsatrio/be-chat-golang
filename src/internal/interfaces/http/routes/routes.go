@@ -20,6 +20,7 @@ func SetupRoutes(
 	userHandler *handlers.UserHandler,
 	roomHandler *handlers.RoomHandler,
 	statusHandler *handlers.StatusHandler,
+	postHandler *handlers.PostHandler,
 	wsHandler *websocket.WSHandler,
 	jwtService *services.JWTService,
 ) {
@@ -81,6 +82,18 @@ func SetupRoutes(
 			statusGroup.GET("", statusHandler.GetStatuses)
 			statusGroup.GET("/me", statusHandler.GetMyStatuses)
 			statusGroup.DELETE("/:id", statusHandler.DeleteStatus)
+		}
+
+		// Post routes
+		postGroup := api.Group("/posts")
+		postGroup.Use(middleware.AuthMiddleware(jwtService))
+		{
+			postGroup.POST("", postHandler.CreatePost)
+			postGroup.GET("", postHandler.GetGlobalFeed)
+			postGroup.DELETE("/:id", postHandler.DeletePost)
+			postGroup.POST("/:id/like", postHandler.ToggleLike)
+			postGroup.POST("/:id/comments", postHandler.AddComment)
+			postGroup.GET("/:id/comments", postHandler.GetComments)
 		}
 
 		// WebSocket

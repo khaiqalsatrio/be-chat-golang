@@ -30,6 +30,9 @@ func InitDB(cfg *config.Config) {
 		&entities.Room{},
 		&entities.Agenda{},
 		&entities.Status{},
+		&entities.Post{},
+		&entities.Like{},
+		&entities.Comment{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to auto migrate: %v", err)

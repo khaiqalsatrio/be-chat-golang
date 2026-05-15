@@ -14,6 +14,7 @@ import (
 	"chat-golang/src/internal/usecases/chat"
 	"chat-golang/src/internal/usecases/room"
 	"chat-golang/src/internal/usecases/status"
+	"chat-golang/src/internal/usecases/post"
 	"chat-golang/src/internal/usecases/user"
 	"log"
 
@@ -60,6 +61,7 @@ func main() {
 	chatRepo := repositories.NewPostgresChatRepository(database.DB)
 	roomRepo := repositories.NewPostgresRoomRepository(database.DB)
 	statusRepo := repositories.NewPostgresStatusRepository(database.DB)
+	postRepo := repositories.NewPostgresPostRepository(database.DB)
 
 	// Initialize WebSocket Hub
 	hub := websocket.NewHub()
@@ -88,6 +90,8 @@ func main() {
 	getMyStatusesUsecase := status.NewGetMyStatusesUsecase(statusRepo)
 	deleteStatusUsecase := status.NewDeleteStatusUsecase(statusRepo)
 
+	postUsecase := post.NewPostUsecase(postRepo)
+
 	uploadProfilePhotoUsecase := auth.NewUploadProfilePhotoUsecase(userRepo)
 	deleteProfilePhotoUsecase := auth.NewDeleteProfilePhotoUsecase(userRepo)
 
@@ -98,13 +102,14 @@ func main() {
 	userHandler := handlers.NewUserHandler(getAllUsersUsecase, getUserByIDUsecase)
 	roomHandler := handlers.NewRoomHandler(createRoomUsecase, getRoomsUsecase)
 	statusHandler := handlers.NewStatusHandler(createStatusUsecase, getStatusesUsecase, getMyStatusesUsecase, deleteStatusUsecase, fileUploadService)
+	postHandler := handlers.NewPostHandler(postUsecase, fileUploadService)
 	wsHandler := websocket.NewWSHandler(hub, jwtService)
 
 	// Setup Router
 	r := gin.Default()
 
 	// Setup Routes
-	routes.SetupRoutes(r, authHandler, agendaHandler, chatHandler, userHandler, roomHandler, statusHandler, wsHandler, jwtService)
+	routes.SetupRoutes(r, authHandler, agendaHandler, chatHandler, userHandler, roomHandler, statusHandler, postHandler, wsHandler, jwtService)
 
 	// Start Server
 	log.Printf("Server starting on port %s", cfg.AppPort)
